@@ -1,15 +1,21 @@
 """
 rag.py — retrieval + grounded answer generation.
 
-What makes this more than a demo:
-  1. **Product-filtered retrieval** — the customer's product (Bil, Innbo,
-     etc.) gates which chunks are even considered. This prevents the agent
-     from answering a bil question with an innbo clause.
-  2. **Strict grounding** — the model is instructed to answer ONLY from the
-     retrieved passages and to refuse honestly when the passages don't
-     contain the answer. The eval harness measures this refusal behaviour.
-  3. **Citations on every answer** — source filename + page so the customer
-     (or a saksbehandler reviewing) can trace any claim back.
+The three things that make this more than a RAG demo:
+
+  1. **Per-product retrieval.** The user picks the exact product they
+     have ("Bil Pluss", "Reise Pluss", "Alvorlig sykdom", ...) and the
+     retriever is restricted to that one PDF. No cross-contamination
+     between products with different rules.
+
+  2. **Strict grounding + honest refusal.** The model is told to answer
+     only from the retrieved passages and to refuse — using a specific
+     refusal phrase — when the passages don't contain the answer. The
+     eval harness measures both accuracy and refusal correctness.
+
+  3. **Conversational tone.** The system prompt asks the model to talk
+     like a knowledgeable colleague reading the vilkår alongside you,
+     not like a customer-service bot.
 """
 
 from __future__ import annotations
@@ -22,44 +28,34 @@ from langchain_anthropic import ChatAnthropic
 from langchain_community.vectorstores import FAISS
 
 from ingest import make_embeddings
-from products import Product
+from products import LABEL_TO_FILE
 
 load_dotenv()
 
 INDEX_DIR = Path(__file__).parent.parent / "vectorstore"
-# TOP_K — chunks to retrieve. We tuned this through the eval:
-#   k=5  → 4/10 accurate, several genuine retrieval misses
+
+# Top-K — tuned through the eval:
+#   k=5  → 4/10 answerable correct (lots of recall misses)
 #   k=10 → 6/10
-#   k=15 → 7/10  (current)
-# Bigger isn't always better (more context = more noise) but legal-style
-# vilkår are repetitive enough that wider recall pays off here. The
-# remaining failures are recall-bound — a cross-encoder reranker would
-# be the next lever (see README "what I'd do differently").
+#   k=15 → 7/10 (current).
+# Diminishing returns past 15; remaining failures are reranker problems
+# (right chunk exists but isn't in the top-K), not generation problems.
 TOP_K = 15
 
 REFUSAL = "Jeg fant ikke svar på dette i vilkårene jeg har tilgang til."
 
-SYSTEM_PROMPT = f"""Du er en hjelpsom og presis kundeassistent for et norsk forsikringsselskap.
+SYSTEM_PROMPT = f"""Du er en kunnskapsrik kollega som hjelper kunden å lese forsikringsvilkårene sine. Du sitter med dokumentet foran deg og forklarer hva som faktisk står der — som en samtale, ikke som en kundeservice-mal.
 
-REGLER (følg disse strengt — det er viktigere enn å gi et fullstendig svar):
-1. Svar BARE basert på de oppgitte vilkårsutdragene under «Vilkår».
-2. KRITISK: Hvis vilkårene ikke inneholder svaret, eller du er usikker:
-   - START svaret ditt med eksakt denne setningen, ordrett:
-     "{REFUSAL}"
-   - Deretter kan du anbefale at kunden kontakter en saksbehandler i
-     Gjensidige, eller foreslå hvor de ellers kan finne svaret.
-   - Ikke omformuler "jeg vet ikke" — bruk den eksakte setningen.
-3. Etter svaret ditt, list opp kildene du brukte (filnavn og side) —
-   med mindre du brukte regel 2.
-4. Bruk klart, vennlig norsk. Hold svaret kort (maks 4-6 setninger).
-5. Hvis kunden spør om noe som ikke gjelder deres valgte produkt, si det
-   høflig og tilby å hjelpe med riktig produkt.
+Snakk naturlig norsk. Bruk «du» og «jeg». Ingen markedsføringsspråk. Ingen «vi har mottatt» eller «takk for at du tok kontakt» — det er ikke en sak, det er et spørsmål.
+
+REGLER (følg disse — de er viktigere enn å gi et komplett svar):
+1. Bruk BARE informasjon fra vilkårsutdragene under «Vilkår».
+2. Hvis vilkårene ikke gir svar, eller du er usikker: START svaret med eksakt denne setningen, ordrett: "{REFUSAL}"
+   Etterpå kan du foreslå hva kunden kan gjøre videre (sjekke forsikringsbeviset, ringe Gjensidige, osv.). Ikke omformuler — bruk akkurat den setningen.
+3. List kildene du brukte til slutt (filnavn + side), med mindre du brukte regel 2.
+4. Hold svaret kort. To til fire setninger holder som regel.
 """
 
-
-# Phrases that indicate the model is refusing — used by the eval to count
-# "honest refusals" even when the model paraphrases slightly. Keeps the
-# system robust without weakening the strict prompt above.
 _REFUSAL_SIGNALS = (
     REFUSAL.lower(),
     "ikke i vilkårene",
@@ -94,8 +90,6 @@ def _format_context(docs) -> str:
     for i, d in enumerate(docs, 1):
         src = d.metadata.get("source", "ukjent")
         page = d.metadata.get("page", "?")
-        # E5 stored chunks with a "passage:" prefix; strip it before showing
-        # the text to the LLM — it's only meaningful to the embedding model.
         text = d.page_content.removeprefix("passage: ").strip()
         blocks.append(f"[{i}] ({src}, side {page})\n{text}")
     return "\n\n".join(blocks)
@@ -103,34 +97,30 @@ def _format_context(docs) -> str:
 
 def answer(
     question: str,
-    product: Optional[Product] = None,
+    product_label: Optional[str] = None,
     k: int = TOP_K,
 ) -> dict:
-    """
-    Answer a question, optionally restricted to one product's vilkår.
+    """Answer a question, restricted to one product's vilkår.
 
-    Returns:
-        {
-            "answer": str,
-            "sources": [{"source": ..., "page": ...}, ...],
-            "refused": bool,
-        }
+    Returns: {"answer": str, "sources": [...], "refused": bool}
     """
     store = _load_store()
-
-    # E5 query format — must match the prefix used at ingest time.
     query = f"query: {question}"
 
-    # Product filter: keeps the agent honest. If product is None we fall
-    # back to global retrieval (e.g. for first-turn product detection).
-    filter_ = {"product": product} if product else None
+    # Filter by the exact source filename — so "Bil Pluss" pulls from
+    # ONLY Bil-Pluss-alminnelige-vilkar.pdf, never Bil-Kasko or Bil-Ansvar.
+    filter_ = None
+    if product_label and product_label in LABEL_TO_FILE:
+        filter_ = {"source": LABEL_TO_FILE[product_label]}
+
     docs = store.similarity_search(query, k=k, filter=filter_)
 
     if not docs:
         return {
             "answer": (
-                f"{REFUSAL} Jeg anbefaler at du kontakter en saksbehandler "
-                "i Gjensidige for å være helt sikker."
+                f"{REFUSAL} Jeg finner ingen relevante avsnitt i vilkårene for "
+                f"{product_label or 'dette produktet'}. Sjekk forsikringsbeviset "
+                "ditt eller ring Gjensidige."
             ),
             "sources": [],
             "refused": True,
@@ -138,11 +128,18 @@ def answer(
 
     context = _format_context(docs)
     llm = ChatAnthropic(
-        model="claude-sonnet-4-6", temperature=0, max_tokens=1024,
+        model="claude-sonnet-4-6", temperature=0.3, max_tokens=1024,
     )
     messages = [
         ("system", SYSTEM_PROMPT),
-        ("human", f"Vilkår:\n{context}\n\nSpørsmål: {question}"),
+        (
+            "human",
+            (
+                f"Kunden har **{product_label or 'forsikring'}**.\n\n"
+                f"Vilkår:\n{context}\n\n"
+                f"Spørsmål: {question}"
+            ),
+        ),
     ]
     response = llm.invoke(messages).content
 
@@ -159,7 +156,7 @@ def answer(
 if __name__ == "__main__":
     import sys
     q = " ".join(sys.argv[1:]) or "Hva er egenandelen ved kollisjon?"
-    result = answer(q, product="Bil")
+    result = answer(q, product_label="Bil Pluss")
     print(result["answer"])
     print("\nKilder:")
     for s in result["sources"]:

@@ -1,12 +1,9 @@
 """
-app.py — conversational Streamlit interface.
+app.py — conversational Streamlit chat for asking about your vilkår.
 
-Flow:
-  1. The user picks which insurance product they have (radio chips).
-     This pins the retrieval filter for the whole conversation.
-  2. The user asks questions in natural Norwegian.
-  3. Each answer is grounded in the chosen product's vilkår, with citations.
-     If the answer isn't in the vilkår, the agent says so honestly.
+Two-step product selection (category → specific product) so the agent
+always knows exactly which PDF to read from. Then a chat where the agent
+talks like a knowledgeable colleague reading the policy alongside you.
 
 Run:
     streamlit run src/app.py
@@ -17,7 +14,9 @@ from __future__ import annotations
 import streamlit as st
 from dotenv import load_dotenv
 
-from products import LABELS, PRODUCTS, Product
+from products import (
+    CATEGORY_EMOJI, categories, category_for, products_in,
+)
 from rag import answer
 
 load_dotenv()
@@ -30,61 +29,85 @@ st.set_page_config(
 
 st.title("📄 Forsikringsassistent")
 st.caption(
-    "Spør om dine Gjensidige-vilkår på norsk. Svarene er hentet direkte fra "
-    "vilkårsdokumentene — og hvis svaret ikke står der, sier assistenten det "
-    "i stedet for å gjette."
+    "Spør om Gjensidige-vilkårene dine på norsk. Svarene kommer rett fra "
+    "vilkårsdokumentet for forsikringen du har — og hvis svaret ikke står "
+    "der, sier assistenten det i stedet for å gjette."
 )
 
-# --- Sidebar -------------------------------------------------------------
+# --- Sidebar ----------------------------------------------------------
 with st.sidebar:
     st.markdown("### Hvordan det fungerer")
     st.markdown(
-        "1. Velg hvilken forsikring spørsmålet gjelder.\n"
-        "2. Still spørsmålet ditt på norsk.\n"
-        "3. Assistenten henter kun fra vilkårene for **din** forsikring "
-        "og siterer kildene.\n"
-        "4. Hvis svaret ikke står i vilkårene, blir du henvist videre — "
-        "ingen gjetting."
+        "1. Velg kategori (Bil, Innbo, Reise...)\n"
+        "2. Velg den eksakte forsikringen din (Bil Pluss, Reise Student...)\n"
+        "3. Still spørsmålet ditt\n\n"
+        "Assistenten leser KUN vilkårsdokumentet for det produktet du valgte. "
+        "Hvis svaret ikke står der, blir du henvist videre — ingen gjetting."
     )
     st.markdown("---")
     st.markdown("**Modell:** Claude Sonnet 4.6")
-    st.markdown("**Embeddings:** intfloat/multilingual-e5-base (lokalt)")
-    st.markdown("**Vektor-database:** FAISS")
-    if st.button("🔄 Nullstill samtale"):
-        st.session_state.pop("messages", None)
-        st.session_state.pop("product", None)
+    st.markdown("**Embeddings:** intfloat/multilingual-e5-base (lokal)")
+    st.markdown("**Vektorindeks:** FAISS")
+    if st.button("🔄 Start på nytt"):
+        for k in ("messages", "category", "product"):
+            st.session_state.pop(k, None)
         st.rerun()
 
 
-# --- Product selection ---------------------------------------------------
+# --- Step 1: category --------------------------------------------------
+if "category" not in st.session_state:
+    st.subheader("Hva slags forsikring gjelder spørsmålet?")
+    cats = categories()
+    cols = st.columns(len(cats))
+    for i, cat in enumerate(cats):
+        if cols[i].button(f"{CATEGORY_EMOJI[cat]} {cat}", use_container_width=True):
+            st.session_state["category"] = cat
+            st.rerun()
+    st.stop()
+
+
+# --- Step 2: specific product within category --------------------------
 if "product" not in st.session_state:
-    st.subheader("👋 Hei! Hvilken forsikring gjelder spørsmålet?")
-    cols = st.columns(len(PRODUCTS))
-    for i, p in enumerate(PRODUCTS):
-        if cols[i].button(LABELS[p], use_container_width=True):
-            st.session_state["product"] = p
+    cat = st.session_state["category"]
+    st.subheader(f"Hvilken {cat.lower()}-forsikring har du?")
+    options = products_in(cat)
+    cols = st.columns(min(len(options), 4))
+    for i, (label, _filename) in enumerate(options):
+        if cols[i % len(cols)].button(label, use_container_width=True):
+            st.session_state["product"] = label
             st.session_state["messages"] = [
                 {
                     "role": "assistant",
                     "content": (
-                        f"Flott! Jeg hjelper deg med spørsmål om "
-                        f"**{LABELS[p].split(maxsplit=1)[-1]}**-vilkårene. "
+                        f"Klart — jeg har vilkårene for **{label}** foran meg. "
                         "Hva lurer du på?"
                     ),
                 }
             ]
             st.rerun()
+    if st.button("← Tilbake"):
+        st.session_state.pop("category", None)
+        st.rerun()
     st.stop()
 
-# --- Chat ---------------------------------------------------------------
-product: Product = st.session_state["product"]
-st.markdown(f"**Forsikring:** {LABELS[product]}")
+
+# --- Step 3: chat ------------------------------------------------------
+product = st.session_state["product"]
+cat = category_for(product)
+header_col, change_col = st.columns([4, 1])
+with header_col:
+    st.markdown(f"**Forsikring:** {CATEGORY_EMOJI.get(cat, '')} {product}")
+with change_col:
+    if st.button("Bytt forsikring"):
+        for k in ("messages", "category", "product"):
+            st.session_state.pop(k, None)
+        st.rerun()
 
 for msg in st.session_state["messages"]:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
         if msg.get("sources"):
-            with st.expander("Kilder"):
+            with st.expander("Kilder fra vilkårene"):
                 for s in msg["sources"]:
                     st.markdown(f"- **{s['source']}**, side {s['page']}")
 
@@ -94,11 +117,11 @@ if prompt := st.chat_input("Skriv spørsmålet ditt..."):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        with st.spinner("Søker i vilkårene..."):
-            result = answer(prompt, product=product)
+        with st.spinner("Leser vilkårene..."):
+            result = answer(prompt, product_label=product)
         st.markdown(result["answer"])
         if result["sources"]:
-            with st.expander("Kilder"):
+            with st.expander("Kilder fra vilkårene"):
                 for s in result["sources"]:
                     st.markdown(f"- **{s['source']}**, side {s['page']}")
 

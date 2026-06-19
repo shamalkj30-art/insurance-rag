@@ -1,59 +1,80 @@
 """
-products.py — the set of insurance product categories we support and the
-mapping from PDF filename to category.
+products.py — exact list of supported insurance products + filename mapping.
 
-WHY this is its own module:
-- The product category becomes metadata on every chunk in the vector store.
-- The retrieval pipeline filters by category so the agent only ever looks
-  at the right vilkår for the customer's actual product.
-- Keeping the mapping in one place means adding a new vilkår PDF is a
-  one-line change here, not a hunt across the codebase.
+I went with per-product filtering instead of per-category because of how
+Gjensidige actually sells these — a customer has "Bil Pluss" or "Bil
+Kasko", not just "bil insurance". The vilkår for Bil Pluss and Bil Kasko
+are different documents and the egenandel rules differ. Letting the
+agent retrieve from "any Bil document" leads to the wrong clause being
+cited.
+
+Adding a new vilkår PDF is a one-line change in PRODUCTS below.
 """
 
 from __future__ import annotations
 
-from typing import Literal
-
-Product = Literal["Bil", "Innbo", "Hus", "Hytte", "Reise", "Helse", "Person"]
-
-PRODUCTS: tuple[Product, ...] = (
-    "Bil", "Innbo", "Hus", "Hytte", "Reise", "Helse", "Person",
+# (display label, filename, category) — order here is the order shown in the UI.
+PRODUCTS: tuple[tuple[str, str, str], ...] = (
+    # 🚗 Bil
+    ("Bil Ansvar",           "Bil Ansvar 1.7.25.pdf",                             "Bil"),
+    ("Bil Delkasko",         "Bil-Delkasko-alminnelige-vilkar.pdf",               "Bil"),
+    ("Bil Kasko",            "Bil-Kasko-alminnelige-vilkar.pdf",                  "Bil"),
+    ("Bil Pluss",            "Bil-Pluss-alminnelige-vilkar.pdf",                  "Bil"),
+    # 🛋️  Innbo
+    ("Innbo Standard",       "Innbo-Standard-alminnelige vilkar.pdf",             "Innbo"),
+    ("Innbo Pluss",          "Innbo-Pluss-alminnelige-vilkar.pdf",                "Innbo"),
+    ("Innbo Ung",            "Innbo-Ung-alminnelige-vilkar.pdf",                  "Innbo"),
+    # 🏠 Hus
+    ("Hus Standard",         "Hus-Standard-alminnelige-vilkar.pdf",               "Hus"),
+    ("Hus Pluss",            "Hus-Pluss-alminnelige-vilkar.pdf",                  "Hus"),
+    # 🏞️  Hytte
+    ("Hytte Standard",       "Hytte-Standard-alminnelige-vilkar.pdf",             "Hytte"),
+    ("Hytte Pluss",          "Hytte-Pluss-alminnelige-vilkar.pdf",                "Hytte"),
+    # ✈️  Reise
+    ("Reise",                "Reise-alminnelige-vilkar.pdf",                      "Reise"),
+    ("Reise Pluss",          "Reise-Pluss-alminnelige-vilkar.pdf",                "Reise"),
+    ("Reise Student",        "Reise-Student-i-utland-alminnelige-vilkar.pdf",     "Reise"),
+    # 🏥 Helse / behandling
+    ("Behandlingsforsikring", "behandlingsforsikring-alminnelige-vilkar.pdf",     "Helse"),
+    ("Helse 55",             "helse-55-alminnelige-vilkar.pdf",                   "Helse"),
+    ("Alvorlig sykdom",      "alvorlig-sykdom-alminnelige-vilkar.pdf",            "Helse"),
+    # ❤️  Person
+    ("Livsforsikring",       "livsforsikring-alminnelige-vilkar.pdf",             "Person"),
+    ("Uføre pensjon",        "uforepensjon-alminnelige-vilkar.pdf",               "Person"),
+    ("Uføre kapital",        "uforekapital-med-forskudd-alminnelige-vilkar.pdf",  "Person"),
+    ("Ulykkesforsikring",    "ulykkesforsikring-alminnelige-vilkar.pdf",          "Person"),
 )
 
-# Human-readable Norwegian labels for the UI.
-LABELS: dict[Product, str] = {
-    "Bil": "🚗 Bil (motor)",
-    "Innbo": "🛋️  Innbo",
-    "Hus": "🏠 Hus",
-    "Hytte": "🏞️  Hytte",
-    "Reise": "✈️  Reise",
-    "Helse": "🏥 Helse / behandling",
-    "Person": "❤️  Person (liv, ulykke, uføre)",
+CATEGORY_EMOJI = {
+    "Bil": "🚗",
+    "Innbo": "🛋️",
+    "Hus": "🏠",
+    "Hytte": "🏞️",
+    "Reise": "✈️",
+    "Helse": "🏥",
+    "Person": "❤️",
 }
 
+LABEL_TO_FILE = {label: filename for label, filename, _ in PRODUCTS}
+FILE_TO_LABEL = {filename: label for label, filename, _ in PRODUCTS}
 
-def from_filename(name: str) -> Product:
-    """Derive the product category from the PDF filename.
 
-    The Gjensidige vilkår files follow predictable name patterns — this
-    function just normalises them to our category enum. If we get an
-    unrecognised name we default to 'Person' (the catch-all for personal
-    insurance) and log nothing — the alternative would be silently
-    dropping the document, which is worse.
-    """
-    n = name.lower()
-    if n.startswith("bil"):
-        return "Bil"
-    if n.startswith("innbo"):
-        return "Innbo"
-    if n.startswith("hus"):
-        return "Hus"
-    if n.startswith("hytte"):
-        return "Hytte"
-    if n.startswith("reise"):
-        return "Reise"
-    if any(n.startswith(prefix) for prefix in ("helse", "behandling", "alvorlig")):
-        return "Helse"
-    if any(n.startswith(prefix) for prefix in ("liv", "ufore", "ulykke")):
-        return "Person"
-    return "Person"  # safe default for anything personal/health-shaped
+def categories() -> list[str]:
+    """Unique categories in their first-appearance order."""
+    seen: list[str] = []
+    for _, _, cat in PRODUCTS:
+        if cat not in seen:
+            seen.append(cat)
+    return seen
+
+
+def products_in(category: str) -> list[tuple[str, str]]:
+    """(label, filename) for everything in a category."""
+    return [(label, fname) for label, fname, cat in PRODUCTS if cat == category]
+
+
+def category_for(label: str) -> str:
+    for lab, _, cat in PRODUCTS:
+        if lab == label:
+            return cat
+    return ""

@@ -1,14 +1,14 @@
-{"question": "Hva er egenandelen ved kollisjon med annet kjøretøy?", "product": "Bil", "expected": "Skal beskrive hvordan egenandel fungerer ved kollisjon (kan være avtalt egenandel eller spesifikk sats).", "answerable": true}
-{"question": "Dekker bilforsikringen skader som skjer under påvirkning av alkohol?", "product": "Bil", "expected": "Skal forklare unntak for skader under påvirkning av rusmidler eller henvise til regress.", "answerable": true}
-{"question": "Hva dekker bilforsikringen ved sammenstøt med vilt?", "product": "Bil", "expected": "Skal beskrive dekning ved viltkollisjon og eventuelle vilkår (f.eks. politianmeldelse, redusert egenandel).", "answerable": true}
-{"question": "Hvor mye er egenandelen ved tyveri fra bolig?", "product": "Innbo", "expected": "Skal beskrive egenandel og/eller krav til politianmeldelse ved tyveri.", "answerable": true}
-{"question": "Er sykkel dekket av innboforsikringen?", "product": "Innbo", "expected": "Skal beskrive sykkeldekning, inkludert eventuelle grenser eller krav om lås.", "answerable": true}
-{"question": "Dekker innboforsikringen vannskade fra vaskemaskin?", "product": "Innbo", "expected": "Skal beskrive vannskadedekning fra rør eller hvitevarer.", "answerable": true}
-{"question": "Hva er dekket ved forsinket bagasje?", "product": "Reise", "expected": "Skal beskrive dekning for nødvendige innkjøp ved forsinket bagasje.", "answerable": true}
-{"question": "Når dekkes avbestilling av reisen?", "product": "Reise", "expected": "Skal beskrive vilkår for avbestilling (f.eks. sykdom, ulykke, dødsfall).", "answerable": true}
-{"question": "Hva skjer hvis jeg mister passet på reise?", "product": "Reise", "expected": "Skal beskrive dekning ved tap av reisedokumenter.", "answerable": true}
-{"question": "Dekker husforsikringen skader fra brann?", "product": "Hus", "expected": "Skal bekrefte at brannskade dekkes av husforsikringen, eller beskrive vilkårene rundt.", "answerable": true}
-{"question": "Hvilken farge har bilen min?", "product": "Bil", "expected": "Skal nekte å svare — informasjon om bilens farge er ikke i vilkårene.", "answerable": false}
-{"question": "Hvor mye tjener Gjensidiges administrerende direktør?", "product": "Bil", "expected": "Skal nekte å svare — lønn er ikke i vilkårene.", "answerable": false}
-{"question": "Kan jeg få lån i Gjensidige?", "product": "Bil", "expected": "Skal nekte å svare — lån er ikke en forsikringsprodukt og ikke i vilkårene.", "answerable": false}
-{"question": "Hva er kapitalen i et selskap?", "product": "Innbo", "expected": "Skal nekte å svare — generelt finansspørsmål, ikke i forsikringsvilkår.", "answerable": false}
+{"question": "Hva er egenandelen ved kollisjon med annet kjøretøy?", "product": "Bil Pluss", "expected": "Skal beskrive hvordan egenandel fungerer ved kollisjon (kan være avtalt egenandel eller spesifikk sats).", "answerable": true}
+{"question": "Dekker forsikringen skader som skjer under påvirkning av alkohol?", "product": "Bil Kasko", "expected": "Skal forklare unntak for skader under påvirkning av rusmidler eller henvise til regress.", "answerable": true}
+{"question": "Hva dekker forsikringen ved sammenstøt med vilt?", "product": "Bil Kasko", "expected": "Skal beskrive dekning ved viltkollisjon og eventuelle vilkår (f.eks. politianmeldelse, redusert egenandel).", "answerable": true}
+{"question": "Hvor mye er egenandelen ved tyveri fra bolig?", "product": "Innbo Standard", "expected": "Skal beskrive egenandel og/eller krav til politianmeldelse ved tyveri.", "answerable": true}
+{"question": "Er sykkel dekket av forsikringen?", "product": "Innbo Pluss", "expected": "Skal beskrive sykkeldekning, inkludert eventuelle grenser eller krav om lås.", "answerable": true}
+{"question": "Dekker forsikringen vannskade fra vaskemaskin?", "product": "Innbo Pluss", "expected": "Skal beskrive vannskadedekning fra rør eller hvitevarer.", "answerable": true}
+{"question": "Hva er dekket ved forsinket bagasje?", "product": "Reise Pluss", "expected": "Skal beskrive dekning for nødvendige innkjøp ved forsinket bagasje.", "answerable": true}
+{"question": "Når dekkes avbestilling av reisen?", "product": "Reise Pluss", "expected": "Skal beskrive vilkår for avbestilling (f.eks. sykdom, ulykke, dødsfall).", "answerable": true}
+{"question": "Hva skjer hvis jeg mister passet på reise?", "product": "Reise Pluss", "expected": "Skal beskrive dekning ved tap av reisedokumenter.", "answerable": true}
+{"question": "Dekker husforsikringen skader fra brann?", "product": "Hus Pluss", "expected": "Skal bekrefte at brannskade dekkes av husforsikringen, eller beskrive vilkårene rundt.", "answerable": true}
+{"question": "Hvilken farge har bilen min?", "product": "Bil Pluss", "expected": "Skal nekte å svare — informasjon om bilens farge er ikke i vilkårene.", "answerable": false}
+{"question": "Hvor mye tjener Gjensidiges administrerende direktør?", "product": "Bil Pluss", "expected": "Skal nekte å svare — lønn er ikke i vilkårene.", "answerable": false}
+{"question": "Kan jeg få lån i Gjensidige?", "product": "Bil Pluss", "expected": "Skal nekte å svare — lån er ikke en forsikringsprodukt og ikke i vilkårene.", "answerable": false}
+{"question": "Hva er kapitalen i et selskap?", "product": "Innbo Standard", "expected": "Skal nekte å svare — generelt finansspørsmål, ikke i forsikringsvilkår.", "answerable": false}

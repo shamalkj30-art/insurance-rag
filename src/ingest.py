@@ -25,7 +25,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from products import from_filename
+from products import FILE_TO_LABEL
 
 load_dotenv()
 
@@ -62,15 +62,19 @@ def load_documents():
 
     docs = []
     for pdf in pdfs:
-        product = from_filename(pdf.name)
+        # The product label is taken from the curated map so the agent
+        # always filters on a known product variant (e.g. "Bil Pluss"),
+        # never a guessed category. Files that aren't in the map are
+        # still ingested but get the filename as a fallback label.
+        label = FILE_TO_LABEL.get(pdf.name, pdf.stem)
         loaded = PyPDFLoader(str(pdf)).load()  # one Document per page
         for d in loaded:
-            d.metadata["source"] = pdf.name
-            d.metadata["product"] = product  # ← lets us filter at retrieval time
+            d.metadata["source"] = pdf.name      # ← the field we filter on
+            d.metadata["product"] = label        # ← human-readable label
             # E5 model wants the "passage:" prefix at index time
             d.page_content = f"passage: {d.page_content}"
         docs.extend(loaded)
-        print(f"  {product:<7} {len(loaded):>3}p  {pdf.name}")
+        print(f"  {label:<22} {len(loaded):>3}p  {pdf.name}")
     return docs
 
 
@@ -90,7 +94,9 @@ def main() -> None:
     for c in chunks:
         by_product.setdefault(c.metadata["product"], 0)
         by_product[c.metadata["product"]] += 1
-    print("  chunks per product:", dict(sorted(by_product.items())))
+    print("  chunks per product:")
+    for prod, n in sorted(by_product.items()):
+        print(f"    {n:>4}  {prod}")
 
     print(f"\nEmbedding with {EMBED_MODEL} (first run downloads ~440 MB model)...")
     embeddings = make_embeddings()

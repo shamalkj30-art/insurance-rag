@@ -15,7 +15,6 @@ from typing import Optional
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-from products import Product
 from rag import answer
 
 app = FastAPI(title="Insurance Policy Q&A API")
@@ -23,7 +22,7 @@ app = FastAPI(title="Insurance Policy Q&A API")
 
 class AskRequest(BaseModel):
     question: str
-    product: Optional[Product] = None
+    product: Optional[str] = None  # exact product label, e.g. "Bil Pluss"
     k: Optional[int] = None
 
 
@@ -45,4 +44,4 @@ def health():
 
 @app.post("/ask", response_model=AskResponse)
 def ask(req: AskRequest):
-    return answer(req.question, product=req.product, k=req.k or 5)
+    return answer(req.question, product_label=req.product, k=req.k or 15)

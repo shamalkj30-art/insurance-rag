@@ -19,15 +19,24 @@ def test_refusal_string_in_prompt():
 
 
 def test_product_mapping():
-    from products import PRODUCTS, from_filename
-    assert from_filename("Bil-Pluss-alminnelige-vilkar.pdf") == "Bil"
-    assert from_filename("Innbo-Standard-alminnelige vilkar.pdf") == "Innbo"
-    assert from_filename("Hytte-Pluss-alminnelige-vilkar.pdf") == "Hytte"
-    assert from_filename("Reise-alminnelige-vilkar.pdf") == "Reise"
-    assert from_filename("livsforsikring-alminnelige-vilkar.pdf") == "Person"
-    assert from_filename("helse-55-alminnelige-vilkar.pdf") == "Helse"
-    assert from_filename("ulykkesforsikring-alminnelige-vilkar.pdf") == "Person"
-    # Every product mapping should land in the enum
-    for name in ["Bil x.pdf", "Innbo x.pdf", "Hus x.pdf", "Hytte x.pdf",
-                 "Reise x.pdf", "helse x.pdf", "ulykke x.pdf"]:
-        assert from_filename(name) in PRODUCTS
+    from products import (
+        FILE_TO_LABEL, LABEL_TO_FILE, PRODUCTS,
+        categories, category_for, products_in,
+    )
+    # Every product is uniquely labelled
+    labels = [p[0] for p in PRODUCTS]
+    assert len(labels) == len(set(labels)), "duplicate product labels"
+
+    # Round-trip both maps
+    for label, filename, _cat in PRODUCTS:
+        assert LABEL_TO_FILE[label] == filename
+        assert FILE_TO_LABEL[filename] == label
+
+    # Categories are well-formed
+    cats = categories()
+    assert "Bil" in cats and "Reise" in cats
+    for cat in cats:
+        items = products_in(cat)
+        assert len(items) > 0
+        for label, _ in items:
+            assert category_for(label) == cat

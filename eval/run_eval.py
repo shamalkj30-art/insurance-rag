@@ -77,14 +77,14 @@ def main() -> None:
 
     correct = 0
     for c in answerable:
-        result = answer(c["question"], product=c.get("product"))
+        result = answer(c["question"], product_label=c.get("product"))
         ok = judge(c["question"], c["expected"], result["answer"])
         correct += ok
         print(f"[{'PASS' if ok else 'FAIL'}] [{c.get('product','-')}] {c['question']}")
 
     refused_correctly = 0
     for c in unanswerable:
-        result = answer(c["question"], product=c.get("product"))
+        result = answer(c["question"], product_label=c.get("product"))
         # We consider it a correct refusal if the model says the refusal phrase
         # OR the result was already short-circuited as "refused".
         refused = result["refused"] or REFUSAL.lower() in result["answer"].lower()
