@@ -1,0 +1,14 @@
+langchain>=0.3
+langchain-anthropic>=0.2
+langchain-community>=0.3
+langchain-huggingface>=0.1
+langchain-text-splitters>=0.3
+langsmith>=0.1
+sentence-transformers>=3.0
+faiss-cpu>=1.8
+pypdf>=4.0
+fastapi>=0.110
+uvicorn>=0.29
+streamlit>=1.40
+python-dotenv>=1.0
+pytest>=8.0
