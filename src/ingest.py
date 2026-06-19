@@ -6,9 +6,10 @@ Run once, or whenever the documents change:
 
 What changed in this version:
 - **Local multilingual embeddings** (intfloat/multilingual-e5-base) instead
-  of OpenAI. Norwegian works well out of the box, no extra API keys
-  required, and the embedding step keeps customer-sensitive vilkår text
-  local — defensible as a data-residency choice for an insurance company.
+  of a cloud embedding API. Norwegian works well out of the box, no extra
+  API keys required, and the embedding step keeps customer-sensitive
+  vilkår text local — defensible as a data-residency choice for an
+  insurance company.
 - **Product metadata on every chunk** so the retriever can filter to only
   the vilkår that match the customer's product (Bil / Innbo / Reise / ...).
 - Source PDF + page number are still preserved so every answer can cite

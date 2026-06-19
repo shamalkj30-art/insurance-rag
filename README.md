@@ -45,7 +45,7 @@ Python · LangChain · Claude Sonnet 4.6 · sentence-transformers (intfloat/mult
 A few choices worth calling out:
 
 - **Local embeddings** instead of a cloud embedding API. Vilkår are public, but if I were shipping this against internal documents I'd want the embedding step local. Easier to keep that option open from day one than retrofit it later.
-- **Claude over OpenAI.** I use Claude day-to-day, the Norwegian quality is solid, and keeping the project on one model vendor simplifies the production story.
+- **Claude as the LLM.** It's what I use day-to-day, the Norwegian quality is solid, and keeping the project on one model vendor simplifies the production story.
 - **FAISS.** Corpus is small, it's just a file, no separate infrastructure to run.
 
 ## What I'd build next

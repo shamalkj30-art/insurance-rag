@@ -13,5 +13,5 @@ jobs:
       - run: pip install -r requirements.txt pytest
       - run: pytest -q
       # The eval run needs an API key + a vector store, so it is gated.
-      # Add OPENAI_API_KEY as a repo secret to enable the eval job below.
+      # Add ANTHROPIC_API_KEY as a repo secret to enable the eval job below.
       # - run: python eval/run_eval.py
