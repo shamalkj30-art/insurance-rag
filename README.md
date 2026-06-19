@@ -5,7 +5,7 @@ documents** (Gjensidige vilkår). Built to demonstrate what it actually
 takes to make a RAG system you'd trust in front of customers, not just
 in a demo.
 
-**Live demo:** _<add Streamlit / HF Spaces URL>_
+**Live demo:** https://huggingface.co/spaces/Shamalkj30/insurance-rag
 
 ---
 
